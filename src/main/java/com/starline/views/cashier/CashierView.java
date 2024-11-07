@@ -90,6 +90,7 @@ public class CashierView extends Composite<VerticalLayout> {
         qrContainer.setWidth("100%");
         qrContainer.getStyle().setHeight("100px");
         qrContainer.getStyle().setAlignItems(Style.AlignItems.CENTER);
+        qrContainer.getStyle().setOverflow(Style.Overflow.HIDDEN);
         qrContainer.getStyle().setJustifyContent(Style.JustifyContent.CENTER);
         qrContainer.add(getzXingVaadinReader());
 
@@ -187,7 +188,7 @@ public class CashierView extends Composite<VerticalLayout> {
 
         TextField code = new TextField();
         code.setRequired(true);
-        code.addValidationStatusChangeListener(e -> log.info("{}", e.getNewStatus()));
+        code.setErrorMessage("Product code is mandatory");
         code.setRequiredIndicatorVisible(true);
 
         TextField name = new TextField();
@@ -197,6 +198,7 @@ public class CashierView extends Composite<VerticalLayout> {
         NumberField price = new NumberField();
         price.setRequiredIndicatorVisible(true);
         price.setMin(0.0);
+        price.setErrorMessage("Price can't be smaller than 0");
         price.setRequired(true);
 
         IntegerField quantity = new IntegerField();
@@ -211,6 +213,7 @@ public class CashierView extends Composite<VerticalLayout> {
         formLayout.addFormItem(name, "Name");
         formLayout.addFormItem(price, "Price");
         formLayout.addFormItem(quantity, "Quantity");
+
 
         dialog.add(formLayout);
 

@@ -1,12 +1,14 @@
 package com.starline.services;
 
 import com.starline.data.User;
-import com.starline.data.UserRepository;
-import java.util.Optional;
+import com.starline.data.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -21,10 +23,12 @@ public class UserService {
         return repository.findById(id);
     }
 
+    @Transactional
     public User update(User entity) {
         return repository.save(entity);
     }
 
+    @Transactional
     public void delete(Long id) {
         repository.deleteById(id);
     }

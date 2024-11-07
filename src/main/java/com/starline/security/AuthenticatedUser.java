@@ -1,7 +1,7 @@
 package com.starline.security;
 
 import com.starline.data.User;
-import com.starline.data.UserRepository;
+import com.starline.data.repository.UserRepository;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;

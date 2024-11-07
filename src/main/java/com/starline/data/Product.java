@@ -9,17 +9,37 @@ Version 1.0
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import org.hibernate.validator.constraints.Length;
 
 @Entity
 public class Product extends AbstractEntity {
 
+    @NotBlank(message = "Name should not be blank")
+    @Length(max = 255, message = "Name can't be exceeded 255 in length")
     private String name;
+    @Length(max = 255, message = "Description can't be exceeded 255 in length")
     private String description;
+    @NotNull(message = "Price should not be null")
+    @Min(0)
     private Double price;
 
-    @Column(unique = true)
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
+    @NotBlank(message = "Product code is mandatory")
+    @Length(max = 30, message = "Product Code maximum length is 30")
+    @Column(unique = true, length = 30)
     private String code;
 
+    public Boolean isDeleted() {
+        return isDeleted;
+    }
+
+    public void setDeleted(Boolean deleted) {
+        isDeleted = deleted;
+    }
     public String getCode() {
         return code;
     }
@@ -50,5 +70,18 @@ public class Product extends AbstractEntity {
 
     public void setPrice(Double price) {
         this.price = price;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof Product product) {
+            return this.getCode().equalsIgnoreCase(product.getCode());
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
     }
 }

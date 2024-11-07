@@ -1,7 +1,7 @@
 package com.starline.security;
 
 import com.starline.data.User;
-import com.starline.data.UserRepository;
+import com.starline.data.repository.UserRepository;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
