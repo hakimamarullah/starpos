@@ -22,11 +22,12 @@ import com.vaadin.flow.dom.Style;
 import com.vaadin.flow.router.Menu;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.spring.annotation.SpringComponent;
+import com.vaadin.flow.spring.annotation.UIScope;
 import com.wontlost.zxing.Constants;
 import com.wontlost.zxing.ZXingVaadinReader;
 import jakarta.annotation.security.RolesAllowed;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,10 +37,11 @@ import java.util.function.Function;
 @Route("cashier")
 @JsModule("./vaadin-zxing-reader.js")
 @Menu(order = 0, icon = "line-awesome/svg/cash-register-solid.svg")
+@UIScope
+@Slf4j
+@SpringComponent
 @RolesAllowed("USER")
 public class CashierView extends Composite<VerticalLayout> {
-
-    private static final Logger log = LoggerFactory.getLogger(CashierView.class);
 
     private final transient List<Item> itemList;
 

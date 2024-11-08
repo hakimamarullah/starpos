@@ -9,11 +9,18 @@ Version 1.0
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.validator.constraints.Length;
 
 @Table(indexes = {
@@ -21,13 +28,24 @@ import org.hibernate.validator.constraints.Length;
         @Index(name = "idx_code", columnList = "code", unique = true)
 })
 @Entity
+@Setter
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor
 public class Product extends AbstractEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
     @NotBlank(message = "Name should not be blank")
     @Length(max = 255, message = "Name can't be exceeded 255 in length")
     private String name;
+
     @Length(max = 255, message = "Description can't be exceeded 255 in length")
     private String description;
+
+
     @NotNull(message = "Price should not be null")
     @Min(0)
     private Double price;
@@ -46,37 +64,6 @@ public class Product extends AbstractEntity {
     public Product setDeleted(Boolean deleted) {
         isDeleted = deleted;
         return this;
-    }
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public Double getPrice() {
-        return price;
-    }
-
-    public void setPrice(Double price) {
-        this.price = price;
     }
 
     @Override

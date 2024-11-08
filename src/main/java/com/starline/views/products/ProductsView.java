@@ -34,12 +34,12 @@ import com.vaadin.flow.function.SerializableBiConsumer;
 import com.vaadin.flow.router.Menu;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.spring.annotation.UIScope;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -56,10 +56,10 @@ import java.util.stream.Stream;
 @PageTitle("Products")
 @Route("products")
 @Menu(order = 1, icon = "line-awesome/svg/product-hunt.svg")
+@UIScope
+@Slf4j
 @RolesAllowed("USER")
 public class ProductsView extends Composite<VerticalLayout> {
-
-    private static final Logger log = LoggerFactory.getLogger(ProductsView.class);
     private final Container container;
 
     private final transient ProductService productService;
