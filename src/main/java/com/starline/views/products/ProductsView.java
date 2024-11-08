@@ -4,20 +4,31 @@ import com.starline.components.Container;
 import com.starline.components.NotificationUtil;
 import com.starline.data.Product;
 import com.starline.services.ProductService;
+import com.starline.utils.CommonUtil;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Composite;
+import com.vaadin.flow.component.Focusable;
 import com.vaadin.flow.component.HasValidation;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.GridVariant;
+import com.vaadin.flow.component.grid.editor.Editor;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.provider.Query;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.data.renderer.NumberRenderer;
+import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.dom.Style;
 import com.vaadin.flow.function.SerializableBiConsumer;
 import com.vaadin.flow.router.Menu;
@@ -26,6 +37,7 @@ import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,8 +45,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @PageTitle("Products")
 @Route("products")
@@ -45,8 +62,12 @@ public class ProductsView extends Composite<VerticalLayout> {
     private static final Logger log = LoggerFactory.getLogger(ProductsView.class);
     private final Container container;
 
-    private final ProductService productService;
+    private final transient ProductService productService;
+
+    private final Set<Product> selectedProducts = new HashSet<>();
     private Grid<Product> productGrid;
+
+    private TextField productSearchField;
 
     public ProductsView(ProductService productService) {
         this.productService = productService;
@@ -57,20 +78,34 @@ public class ProductsView extends Composite<VerticalLayout> {
         Dialog formAddProduct = initFormAddProduct();
 
         Button newProductBtn = new Button("New", e -> formAddProduct.open());
-        Button deleteProductBtn = new Button("Delete", e -> log.info("delete"));
+        Button archiveProductBtn = new Button("Archive", e -> doArchiveProduct(selectedProducts));
+        Button publishProductBtn = new Button("Publish", e -> doPublishProduct(selectedProducts));
         HorizontalLayout btnLayout = new HorizontalLayout();
-        btnLayout.getStyle().setJustifyContent(Style.JustifyContent.SPACE_BETWEEN);
-        btnLayout.getStyle().setAlignItems(Style.AlignItems.START);
-        btnLayout.setWidth("30%");
-        btnLayout.add(newProductBtn, deleteProductBtn);
+        btnLayout.getStyle().setJustifyContent(Style.JustifyContent.LEFT);
+        btnLayout.getStyle().setAlignItems(Style.AlignItems.CENTER);
+        btnLayout.setWidthFull();
+        btnLayout.add(newProductBtn, archiveProductBtn, publishProductBtn);
         addContent(formAddProduct);
         addContent(btnLayout);
-        addContent(initProductGrid());
 
 
-        productGrid.addSelectionListener(event -> {
-            event.getAllSelectedItems().forEach(p -> log.info("{}", p.getId()));
-        });
+        HorizontalLayout gridContainer = new HorizontalLayout();
+        gridContainer.setWidthFull();
+        gridContainer.getStyle().setJustifyContent(Style.JustifyContent.LEFT);
+        gridContainer.getStyle().setFlexDirection(Style.FlexDirection.COLUMN);
+        gridContainer.getStyle().setAlignItems(Style.AlignItems.CENTER);
+        initProductGrid();
+
+        HorizontalLayout searchFieldContainer = new HorizontalLayout();
+        searchFieldContainer.setWidthFull();
+        searchFieldContainer.getStyle().setJustifyContent(Style.JustifyContent.LEFT);
+        searchFieldContainer.getStyle().setAlignItems(Style.AlignItems.CENTER);
+        searchFieldContainer.add(productSearchField);
+
+        gridContainer.add(searchFieldContainer);
+        gridContainer.add(productGrid);
+
+        addContent(gridContainer);
 
         getContent().add(container);
     }
@@ -161,27 +196,111 @@ public class ProductsView extends Composite<VerticalLayout> {
         return dialog;
     }
 
-    Grid<Product> initProductGrid() {
+    void initProductGrid() {
         productGrid = new Grid<>(Product.class, false);
+        BiFunction<Query<Product,Void>, String, Stream<Product>> searchDataProvider = (query, searchKey) -> {
+            Sort sort = CommonUtil.toJpaSort(query.getSortOrders())
+                    .orElse(Sort.by(new Sort.Order(Sort.Direction.ASC, "isDeleted"), new Sort.Order(Sort.Direction.DESC, "createdTime")));
+            Pageable pageable = PageRequest.of(query.getPage(), query.getPageSize(), sort);
+
+            if (StringUtils.isBlank(searchKey)) {
+                return productService.list(pageable).getContent().stream();
+            }
+            return productService.findByCodeOrNameContains(searchKey, pageable).getContent().stream();
+        };
+
         productGrid.setSelectionMode(Grid.SelectionMode.MULTI);
-        productGrid.setItems(query -> {
-            Pageable pageable = PageRequest.of(query.getPage(), query.getPageSize(), Sort.by(Sort.Direction.DESC, "createdTime"));
-            return productService.list(pageable).getContent().stream();
-        });
+        productGrid.setWidth("65%");
+        productGrid.setItems(query -> searchDataProvider.apply(query, null));
 
         SerializableBiConsumer<Span, Product> deleteFlagUpdater = (span, product) -> {
             String theme = String.format("badge %s", Boolean.TRUE.equals(product.isDeleted()) ? "error" : "success");
             span.getElement().setAttribute("theme", theme);
             span.setText(Boolean.TRUE.equals(product.isDeleted()) ? "Out-of-Stock" : "In-Stock");
         };
-        productGrid.addColumn(Product::getCode).setHeader("Code");
-        productGrid.addColumn(Product::getName).setHeader("Name");
-        productGrid.addColumn(new NumberRenderer<>(Product::getPrice, Locale.of("id", "ID"))).setHeader("Price");
-        productGrid.addColumn(Product::getDescription).setHeader("Description").setAutoWidth(true).setFlexGrow(0);
-        productGrid.addColumn(new ComponentRenderer<>(Span::new, deleteFlagUpdater)).setHeader("Status").setAutoWidth(true).setFlexGrow(0);
+
+        var codeCol = productGrid.addColumn(Product::getCode)
+                .setHeader("Code")
+                .setSortable(true)
+                .setTextAlign(ColumnTextAlign.START)
+                .setAutoWidth(true)
+                .setFlexGrow(0)
+                .setSortProperty("code");
+        var nameCol = productGrid.addColumn(Product::getName)
+                .setHeader("Name")
+                .setTextAlign(ColumnTextAlign.START)
+                .setAutoWidth(true)
+                .setFlexGrow(0)
+                .setSortable(Boolean.TRUE)
+                .setSortProperty("name");
+        var priceCol = productGrid.addColumn(new NumberRenderer<>(Product::getPrice, Locale.of("id", "ID")))
+                .setHeader("Price")
+                .setTextAlign(ColumnTextAlign.START)
+                .setSortable(Boolean.TRUE)
+                .setSortProperty("price")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+        var descriptionCol = productGrid.addColumn(Product::getDescription).setHeader("Description").setAutoWidth(true).setFlexGrow(0);
+        productGrid.addColumn(new ComponentRenderer<>(Span::new, deleteFlagUpdater))
+                .setHeader("Status")
+                .setSortable(Boolean.TRUE)
+                .setSortProperty("isDeleted")
+                .setAutoWidth(true)
+                .setFlexGrow(0);
+
+        productGrid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT);
+        productGrid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
+
+        productGrid.asMultiSelect().addSelectionListener(event -> {
+            selectedProducts.clear();
+            selectedProducts.addAll(event.getAllSelectedItems());
+        });
+
+        productSearchField = new TextField();
+        productSearchField.setWidth("50%");
+        productSearchField.setPlaceholder("Search");
+        productSearchField.setPrefixComponent(new Icon(VaadinIcon.SEARCH));
+        productSearchField.setValueChangeMode(ValueChangeMode.EAGER);
+        productSearchField.addValueChangeListener(e -> productGrid.setItems(query -> searchDataProvider.apply(query, e.getValue())));
+        productSearchField.setWidth("25%");
 
 
-        return productGrid;
+        Binder<Product> productBinder = new BeanValidationBinder<>(Product.class);
+        Editor<Product> productEditor = productGrid.getEditor();
+        productEditor.setBinder(productBinder);
+
+
+        TextField code = new TextField();
+        code.setRequired(true);
+        code.setWidthFull();
+        code.setErrorMessage("Product code is mandatory");
+        code.setRequiredIndicatorVisible(true);
+        codeCol.setEditorComponent(code);
+
+        productBinder.forField(code).bind(Product::getCode, Product::setCode);
+        productGrid.addItemDoubleClickListener(e -> {
+            productEditor.editItem(e.getItem());
+            Component editorComponent = e.getColumn().getEditorComponent();
+            if (editorComponent instanceof Focusable focusable) {
+                focusable.focus();
+            }
+        });
+
+    }
+
+
+    void doArchiveProduct(Set<Product> products) {
+        Set<Product> deleted = products.stream().map(p -> p.setDeleted(Boolean.TRUE)).collect(Collectors.toSet());
+        productService.saveBatch(deleted);
+        productGrid.getDataProvider().refreshAll();
+        productGrid.deselectAll();
+    }
+
+    void doPublishProduct(Set<Product> products) {
+        Set<Product> published = products.stream().map(p -> p.setDeleted(Boolean.FALSE)).collect(Collectors.toSet());
+        productService.saveBatch(published);
+        productGrid.getDataProvider().refreshAll();
+        productGrid.deselectAll();
     }
 
     boolean doSaveProduct(Product product) {

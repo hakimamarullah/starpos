@@ -11,10 +11,12 @@ import com.starline.data.Product;
 import com.starline.data.repository.ProductRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class ProductService {
@@ -26,8 +28,14 @@ public class ProductService {
     }
 
     @Transactional
-    public Product save(Product product) {
-        return productRepository.save(product);
+    public void save(Product product) {
+        productRepository.save(product);
+    }
+
+    @Transactional
+    @Modifying
+    public void saveBatch(Set<Product> products) {
+        productRepository.saveAllAndFlush(products);
     }
 
     @Transactional
@@ -49,6 +57,10 @@ public class ProductService {
 
     public Page<Product> listAvailableProduct(Pageable pageable) {
         return productRepository.findByIsDeletedFalse(pageable);
+    }
+
+    public Page<Product> findByCodeOrNameContains(String searchKey, Pageable pageable) {
+        return productRepository.findByCodeContainsIgnoreCaseOrNameContainsIgnoreCase(searchKey, searchKey, pageable);
     }
 
 }
