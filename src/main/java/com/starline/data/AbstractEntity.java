@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 @Setter
 @Getter
 public abstract class AbstractEntity {
+
     @Version
     private int version;
 
@@ -42,26 +43,6 @@ public abstract class AbstractEntity {
     @LastModifiedDate
     @Column(name = "updated_time")
     private LocalDateTime updatedTime;
-
-    public void setVersion(int version) {
-        this.version = version;
-    }
-
-    public void setCreatedBy(String createdBy) {
-        this.createdBy = createdBy;
-    }
-
-    public void setUpdatedBy(String updatedBy) {
-        this.updatedBy = updatedBy;
-    }
-
-    public void setCreatedTime(LocalDateTime createdTime) {
-        this.createdTime = createdTime;
-    }
-
-    public void setUpdatedTime(LocalDateTime updatedTime) {
-        this.updatedTime = updatedTime;
-    }
 
 
 }

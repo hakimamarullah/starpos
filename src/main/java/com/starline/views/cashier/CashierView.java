@@ -1,10 +1,14 @@
 package com.starline.views.cashier;
 
+import com.starline.components.NotificationUtil;
 import com.starline.constants.StyleProps;
+import com.starline.data.Product;
 import com.starline.data.dto.Item;
+import com.starline.services.ProductService;
 import com.starline.utils.CommonUtil;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.HasValidation;
+import com.vaadin.flow.component.HasValue;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.dialog.Dialog;
@@ -13,8 +17,6 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.NativeLabel;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.Autocomplete;
-import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -29,8 +31,12 @@ import com.wontlost.zxing.ZXingVaadinReader;
 import jakarta.annotation.security.RolesAllowed;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 @PageTitle("Cashier")
@@ -43,21 +49,24 @@ import java.util.function.Function;
 @RolesAllowed("USER")
 public class CashierView extends Composite<VerticalLayout> {
 
-    private final transient List<Item> itemList;
+    private final transient Set<Item> itemList;
+
+    private final Map<String, Item> itemCount = new HashMap<>();
+
+    private final transient ProductService productService;
 
     private final ListDataProvider<Item> listItemProvider;
     private final NumberField totalPriceField = new NumberField();
     private final NumberField totalDiscountField = new NumberField();
-
     private final NumberField taxField = new NumberField();
-
     private final NumberField grandTotalField = new NumberField();
+    private ZXingVaadinReader barcodeReader;
 
-    public CashierView() {
+    public CashierView(ProductService productService) {
+        this.productService = productService;
         HorizontalLayout layoutRow = new HorizontalLayout();
         layoutRow.setWidth("100%");
         layoutRow.setHeight("max-content");
-        layoutRow.getStyle().set(StyleProps.BORDER, "1px solid red");
         layoutRow.getStyle().setJustifyContent(Style.JustifyContent.SPACE_BETWEEN);
 
         VerticalLayout itemsLayout = new VerticalLayout();
@@ -74,7 +83,7 @@ public class CashierView extends Composite<VerticalLayout> {
         layoutRow.add(itemsLayout);
         layoutRow.add(detailPrice);
 
-        itemList = new ArrayList<>();
+        itemList = new TreeSet<>();
         listItemProvider = new ListDataProvider<>(itemList);
 
 
@@ -94,7 +103,9 @@ public class CashierView extends Composite<VerticalLayout> {
         qrContainer.getStyle().setAlignItems(Style.AlignItems.CENTER);
         qrContainer.getStyle().setOverflow(Style.Overflow.HIDDEN);
         qrContainer.getStyle().setJustifyContent(Style.JustifyContent.CENTER);
-        qrContainer.add(getzXingVaadinReader());
+
+        barcodeReader = getzXingVaadinReader(consumeBarcode());
+        qrContainer.add(barcodeReader);
 
         getContent().add(qrContainer);
         getContent().add(dialog);
@@ -103,21 +114,46 @@ public class CashierView extends Composite<VerticalLayout> {
 
     }
 
-    ZXingVaadinReader getzXingVaadinReader() {
+    ZXingVaadinReader getzXingVaadinReader(Consumer<HasValue.ValueChangeEvent<String>> eventConsumer) {
         ZXingVaadinReader zxingReader = new ZXingVaadinReader();
         zxingReader.setFrom(Constants.From.camera);
         zxingReader.setWidth("350");
         zxingReader.setId("video");
         zxingReader.setStyle("border: 1px solid gray");
-        zxingReader.addValueChangeListener(e ->
-        {
-            log.info("====================================================");
-            log.info("=================QR=====: {}", e.getValue());
-            log.info("====================================================");
-            zxingReader.reset();
-
-        });
+        zxingReader.addValueChangeListener(eventConsumer::accept);
         return zxingReader;
+    }
+
+    public Consumer<HasValue.ValueChangeEvent<String>> consumeBarcode() {
+        return (HasValue.ValueChangeEvent<String> e) -> doAddItem(e.getValue());
+    }
+
+    public void doAddItem(String productCode) {
+        Optional<Product> product = productService.findByProductCode(productCode);
+        if (product.isEmpty()) {
+            NotificationUtil.showError(String.format("product %s is not present in inventory", productCode));
+            return;
+        }
+
+        if (Boolean.TRUE.equals(product.get().isDeleted())) {
+            NotificationUtil.showWarn(String.format("product %s is not available", productCode));
+            return;
+        }
+        itemCount.computeIfPresent(product.get().getCode(), (k, v) -> v.setQuantity(v.getQuantity() + 1));
+        itemCount.computeIfAbsent(productCode, k -> {
+            Item item = new Item();
+            item.setCode(k);
+            item.setName(product.get().getName());
+            item.setPrice(product.get().getPrice());
+            item.setQuantity(1);
+            return item;
+        });
+
+        itemList.addAll(itemCount.values());
+        listItemProvider.refreshAll();
+        doCalculateTotalPurchase();
+        barcodeReader.reset();
+        log.info("Product {} added. Total Items: {}", productCode, itemList.size());
     }
 
     Grid<Item> initItemList() {
@@ -138,6 +174,7 @@ public class CashierView extends Composite<VerticalLayout> {
     }
 
     VerticalLayout initDetailCalculation() {
+
         VerticalLayout detailCalculationSection = new VerticalLayout();
         detailCalculationSection.setWidth("100%");
 
@@ -193,49 +230,14 @@ public class CashierView extends Composite<VerticalLayout> {
         code.setErrorMessage("Product code is mandatory");
         code.setRequiredIndicatorVisible(true);
 
-        TextField name = new TextField();
-        name.setRequired(true);
-        name.setRequiredIndicatorVisible(true);
-
-        NumberField price = new NumberField();
-        price.setRequiredIndicatorVisible(true);
-        price.setMin(0.0);
-        price.setErrorMessage("Price can't be smaller than 0");
-        price.setRequired(true);
-
-        IntegerField quantity = new IntegerField();
-        quantity.setMin(1);
-        quantity.setErrorMessage("Quantity must be greater than 0");
-        quantity.setAutocomplete(Autocomplete.ON);
-        quantity.setRequiredIndicatorVisible(true);
-        quantity.setRequired(true);
-
-
         formLayout.addFormItem(code, "Code");
-        formLayout.addFormItem(name, "Name");
-        formLayout.addFormItem(price, "Price");
-        formLayout.addFormItem(quantity, "Quantity");
-
-
         dialog.add(formLayout);
 
         Button submit = new Button("Add");
         submit.addClickListener(e -> {
-            Item item = new Item();
-            item.setCode(code.getValue());
-            item.setName(name.getValue());
-            item.setPrice(price.getValue());
-            item.setQuantity(quantity.getOptionalValue().orElse(0));
-
-            if (Boolean.FALSE.equals(checkIsValid(code, name, price, quantity))) {
-                return;
-            }
-            addItem(item);
-            dialog.close();
-            code.setValue("");
-            name.setValue("");
-            price.setValue(0.0);
-            quantity.setValue(0);
+          doAddItem(code.getValue());
+          dialog.close();
+          code.setValue(code.getEmptyValue());
         });
 
         Button cancel = new Button("Cancel", e -> dialog.close());
@@ -246,8 +248,7 @@ public class CashierView extends Composite<VerticalLayout> {
         return dialog;
     }
 
-    void addItem(Item item) {
-        itemList.add(item);
+    void doCalculateTotalPurchase() {
         double totalPrice = itemList.stream().mapToDouble(val -> val.getPrice() * val.getQuantity()).sum();
         double tax = totalPrice * 0.1;
         double grandTotal = totalPrice + tax;

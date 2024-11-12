@@ -7,7 +7,31 @@ Created on 11/6/2024 11:33 AM
 Version 1.0
 */
 
-public class Item {
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+
+@Setter
+@Getter
+@Accessors(chain = true)
+public class Item implements Comparable<Item> {
+    @Override
+    public int compareTo(Item o) {
+        return this.getCode().compareTo(o.getCode());
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof Item item) {
+            return this.getCode().equalsIgnoreCase(item.getCode());
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
+    }
 
     private String name;
     private Double price;
@@ -16,35 +40,4 @@ public class Item {
 
     private String code;
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Double getPrice() {
-        return price;
-    }
-
-    public void setPrice(Double price) {
-        this.price = price;
-    }
-
-    public Integer getQuantity() {
-        return quantity;
-    }
-
-    public void setQuantity(Integer quantity) {
-        this.quantity = quantity;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
 }

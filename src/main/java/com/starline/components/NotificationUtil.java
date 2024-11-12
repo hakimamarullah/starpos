@@ -33,6 +33,8 @@ public class NotificationUtil {
         show(5000, message, NotificationVariant.LUMO_SUCCESS);
     }
 
+    public static void showWarn(String message) { show (3000, message, NotificationVariant.LUMO_WARNING); }
+
     private static void show(Integer duration, String message, NotificationVariant variant) {
         Notification notif = new Notification();
         notif.addThemeVariants(variant);
