@@ -3,8 +3,14 @@ pipeline {
     stages {
         stage('build') {
             steps {
-                sh 'mvn --version'
+                sh 'mvn clean package -Pproduction -Dvaadin.force.production.build=true'
             }
         }
+    }
+
+    post {
+           always {
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+           }
     }
 }
