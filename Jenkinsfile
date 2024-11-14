@@ -3,7 +3,7 @@ pipeline {
     stages {
         stage('build') {
             steps {
-                sh 'mvn clean package -Pproduction -Dvaadin.force.production.build=true -Dmaven.repo.local=$HOME/.m2/repository'
+                sh 'mvn clean package -Pproduction -Dvaadin.force.production.build=true'
             }
         }
     }
